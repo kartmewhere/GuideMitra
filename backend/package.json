@@ -17,8 +17,8 @@
     "security:scan": "npm run security:audit && gitleaks detect --source . --verbose",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:seed": "node src/scripts/seed.js",
-    "prepare": "cd .. && husky install .husky"
+    "prepare": "node -e \"process.env.HUSKY === '0' || require('husky').install('.husky')\"",
+    "db:seed": "node src/scripts/seed.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.1",

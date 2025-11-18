@@ -134,7 +134,7 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Checking backend health..."
-          curl -f http://${{ secrets.EC2_HOST }}:5000/health || exit 1
+          curl -f http://${{ secrets.EC2_HOST }}/health || exit 1
 
           echo "Checking frontend..."
           curl -f http://${{ secrets.EC2_HOST }} || exit 1

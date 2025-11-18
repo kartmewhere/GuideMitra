@@ -17,7 +17,7 @@
     "security:scan": "npm run security:audit && gitleaks detect --source . --verbose",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "prepare": "node -e \"process.env.HUSKY === '0' || require('husky').install('.husky')\"",
+    "prepare": "echo \"Skipping Husky install on server\"",
     "db:seed": "node src/scripts/seed.js"
   },
   "dependencies": {

@@ -1,0 +1,35 @@
+node_modules
+.env
+dist/
+build/
+.DS_Store
+.idea
+.vscode/
+.vscode*
+.vscode
+
+# Editor and IDE files
+.cursor/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+.Trash-*
+
+# Local config files
+.docker/
+.gemini/
+.jdks/
+.kiro/
+.local/
+.lesshst
+.gitconfig
+.ipython/
+
+# Coverage and test results
+coverage/
+*.coverage
+.nyc_output/
+.pytest_cache/

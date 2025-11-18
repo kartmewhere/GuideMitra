@@ -1,0 +1,81 @@
+# Prometheus Configuration for GuideMitra
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'guidemitra-production'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'localhost:9093'
+
+# Load rules
+rule_files:
+  - 'alerts/*.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (system metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          instance: 'guidemitra-server'
+
+  # Application metrics (if exposed)
+  - job_name: 'guidemitra-backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:5000']
+        labels:
+          app: 'backend'
+
+  # PostgreSQL Exporter
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['localhost:9187']
+        labels:
+          database: 'guidemitra'
+
+  # Nginx Exporter
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['localhost:9113']
+        labels:
+          service: 'nginx'
+
+  # PM2 Metrics (if available)
+  - job_name: 'pm2'
+    static_configs:
+      - targets: ['localhost:9209']
+        labels:
+          service: 'pm2'
+
+  # Blackbox Exporter (endpoint monitoring)
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://localhost/health
+          - http://localhost/api/health
+          - https://yourdomain.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9115
+

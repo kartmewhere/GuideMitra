@@ -1,0 +1,17 @@
+{
+  "backend/**/*.{js,jsx}": [
+    "npx --yes eslint --fix",
+    "npx --yes prettier --write"
+  ],
+  "frontend/**/*.{js,jsx}": [
+    "npx --yes eslint --fix",
+    "npx --yes prettier --write"
+  ],
+  "**/*.{md,yml,yaml}": [
+    "npx --yes prettier --write"
+  ],
+  "**/*.json": [
+    "npx --yes prettier --write"
+  ]
+}
+

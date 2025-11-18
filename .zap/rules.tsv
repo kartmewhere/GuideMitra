@@ -1,0 +1,61 @@
+# ZAP Scanning Rules
+# Format: ID	THRESHOLD	[EXAMPLE URL]
+# 
+# THRESHOLD values: IGNORE, INFO, WARN, FAIL
+# 
+
+# High Priority Rules
+10020	FAIL	# X-Frame-Options Header Not Set
+10021	FAIL	# X-Content-Type-Options Header Missing
+10023	FAIL	# Information Disclosure - Debug Error Messages
+10024	FAIL	# Information Disclosure - Sensitive Information in URL
+10025	FAIL	# Information Disclosure - Sensitive Information in HTTP Referrer Header
+10026	FAIL	# HTTP Parameter Override
+10027	FAIL	# Information Disclosure - Suspicious Comments
+10028	FAIL	# Open Redirect
+10029	FAIL	# Cookie Poisoning
+10030	FAIL	# User Controllable Charset
+10031	FAIL	# User Controllable HTML Element Attribute (Potential XSS)
+10032	FAIL	# Viewstate Scanner
+10040	WARN	# Secure Pages Include Mixed Content
+10041	WARN	# HTTP to HTTPS Insecure Transition in Form Post
+10042	WARN	# HTTPS to HTTP Insecure Transition in Form Post
+10043	FAIL	# User Controllable JavaScript Event (XSS)
+10044	FAIL	# Big Redirect Detected (Potential Sensitive Information Leak)
+10045	FAIL	# Source Code Disclosure - /WEB-INF folder
+10047	WARN	# HTTPS Content Available via HTTP
+10048	INFO	# Remote Code Execution - Shell Shock
+10049	FAIL	# Content Cacheability
+10050	FAIL	# Retrieved from Cache
+10051	FAIL	# Relative Path Confusion
+10052	FAIL	# X-ChromeLogger-Data (XCOLD) Header Information Leak
+10054	FAIL	# Cookie Without SameSite Attribute
+10055	FAIL	# CSP Scanner
+10056	FAIL	# X-Debug-Token Information Leak
+10057	FAIL	# Username Hash Found
+10061	FAIL	# X-AspNet-Version Response Header
+10062	FAIL	# PII Scanner
+10063	FAIL	# Feature Policy Header Not Set
+10095	FAIL	# Cookie Slack Detector
+10096	INFO	# Timestamp Disclosure
+10097	FAIL	# Hash Disclosure
+10098	FAIL	# Cross-Domain Misconfiguration
+10099	FAIL	# Source Code Disclosure
+10103	FAIL	# Dangerous JS Functions
+10104	FAIL	# User Agent Fuzzer
+10105	FAIL	# Weak Authentication Method
+
+# SQL Injection
+40018	FAIL	# SQL Injection
+
+# XSS
+40012	FAIL	# Cross Site Scripting (Reflected)
+40013	FAIL	# Cross Site Scripting (Persistent)
+40014	FAIL	# Cross Site Scripting (Persistent) - Prime
+40016	FAIL	# Cross Site Scripting (Persistent) - Spider
+40017	FAIL	# Cross Site Scripting (Persistent) - JSON
+
+# Authentication
+10010	WARN	# Cookie No HttpOnly Flag
+10011	WARN	# Cookie Without Secure Flag
+

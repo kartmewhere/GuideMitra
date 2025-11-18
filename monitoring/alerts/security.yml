@@ -1,0 +1,105 @@
+# Security Alert Rules for GuideMitra
+
+groups:
+  - name: security_alerts
+    interval: 30s
+    rules:
+      # High error rate - potential attack
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} requests/second on {{ $labels.instance }}"
+
+      # Too many authentication failures
+      - alert: AuthenticationFailures
+        expr: rate(auth_failures_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "{{ $value }} failed auth attempts per second on {{ $labels.instance }}"
+
+      # Unusual traffic spike
+      - alert: TrafficSpike
+        expr: rate(http_requests_total[1m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Unusual traffic spike detected"
+          description: "Request rate is {{ $value }} requests/second, possible DDoS"
+
+      # SSL certificate expiry
+      - alert: SSLCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 14
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+
+      # SSL certificate expired
+      - alert: SSLCertificateExpired
+        expr: probe_ssl_earliest_cert_expiry - time() < 0
+        for: 5m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "SSL certificate expired"
+          description: "SSL certificate for {{ $labels.instance }} has expired"
+
+      # Too many 4xx errors - potential scanning
+      - alert: HighClientErrorRate
+        expr: rate(http_requests_total{status=~"4.."}[5m]) > 20
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High 4xx error rate"
+          description: "{{ $value }} 4xx errors/second, possible scanning activity"
+
+      # Security update available (requires custom exporter)
+      - alert: SecurityUpdatesAvailable
+        expr: security_updates_pending > 0
+        for: 24h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Security updates pending"
+          description: "{{ $value }} security updates are available"
+
+      # Failed backup detection
+      - alert: BackupFailed
+        expr: time() - last_successful_backup_timestamp > 86400
+        for: 1h
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Backup has not completed in 24 hours"
+          description: "Last successful backup was {{ $value | humanizeDuration }} ago"
+
+      # Disk filling up rapidly
+      - alert: DiskFillingRapidly
+        expr: predict_linear(node_filesystem_free_bytes{mountpoint="/"}[1h], 24*3600) < 0
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Disk will be full in 24 hours"
+          description: "Disk on {{ $labels.instance }} is filling rapidly"
+

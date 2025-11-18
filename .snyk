@@ -1,0 +1,33 @@
+# Snyk (https://snyk.io) policy file
+
+# Ignore specific vulnerabilities (use with caution)
+ignore: {}
+
+# Patch vulnerabilities
+patch: {}
+
+# Language settings
+language-settings:
+  javascript:
+    # Exclude test files from scanning
+    ignore-files:
+      - "**/*.test.js"
+      - "**/*.spec.js"
+      - "**/test/**"
+      - "**/tests/**"
+      - "**/__tests__/**"
+
+# Exclude paths from scanning
+exclude:
+  - node_modules
+  - build
+  - dist
+  - coverage
+  - .git
+
+# Fail build on severity threshold
+failOn: upgradable
+
+# Organization settings (configure these in Snyk dashboard)
+# org: your-snyk-org
+

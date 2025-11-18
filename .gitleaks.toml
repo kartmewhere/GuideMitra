@@ -1,0 +1,40 @@
+# Gitleaks configuration file
+title = "GuideMitra Gitleaks Config"
+
+[extend]
+# useDefault will extend the base configuration with the default gitleaks config:
+# https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+useDefault = true
+
+[allowlist]
+description = "Allowlisted files and patterns"
+paths = [
+  '''\.env\.example$''',
+  '''node_modules/''',
+  '''package-lock\.json$''',
+  '''.git/''',
+]
+
+regexes = [
+  '''(test|example|dummy|placeholder)''',
+]
+
+# Custom rules for additional secret patterns
+[[rules]]
+id = "custom-jwt-secret"
+description = "Potential JWT Secret"
+regex = '''jwt[_-]?secret["\s:=]+["']?([a-zA-Z0-9_\-\.]{32,})["']?'''
+tags = ["jwt", "secret"]
+
+[[rules]]
+id = "custom-api-key"
+description = "Potential API Key"
+regex = '''api[_-]?key["\s:=]+["']?([a-zA-Z0-9_\-]{20,})["']?'''
+tags = ["api", "key"]
+
+[[rules]]
+id = "custom-database-url"
+description = "Database Connection String"
+regex = '''(postgresql|mysql|mongodb):\/\/[^\s]+'''
+tags = ["database", "connection"]
+

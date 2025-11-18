@@ -1,0 +1,160 @@
+name: CI/CD Pipeline - Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+      - production
+  pull_request:
+    branches:
+      - main
+
+env:
+  NODE_VERSION: "18.x"
+
+jobs:
+  # Job 1: Test and Build Frontend
+  frontend-build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Create frontend .env file
+        working-directory: ./frontend
+        run: |
+          echo "REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL }}" > .env
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build/
+          retention-days: 1
+
+  # Job 2: Test Backend
+  backend-test:
+    name: Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Check for syntax errors
+        working-directory: ./backend
+        run: node -c src/server.js
+
+  # Job 3: Deploy to EC2
+  deploy:
+    name: Deploy to EC2
+    needs: [frontend-build, backend-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download frontend build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build/
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy to EC2
+        run: |
+          # Create deployment directory on EC2
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} '
+            mkdir -p ~/guidemitra/frontend
+            mkdir -p ~/guidemitra/backend
+          '
+
+          # Copy frontend build to EC2
+          scp -i ~/.ssh/deploy_key -r frontend/build/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/guidemitra/frontend/
+
+          # Copy backend files to EC2
+          scp -i ~/.ssh/deploy_key -r backend/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/guidemitra/backend/
+
+          # Execute deployment script on EC2
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} '
+            cd ~/guidemitra/backend
+            
+            # Install dependencies
+            npm ci --production
+            
+            # Generate Prisma client
+            npx prisma generate
+            
+            # Run database migrations
+            npx prisma migrate deploy
+            
+            # Restart backend service
+            pm2 restart guidemitra-backend || pm2 start src/server.js --name guidemitra-backend
+            
+            # Restart frontend service (nginx)
+            sudo systemctl restart nginx
+          '
+
+      - name: Verify deployment
+        run: |
+          echo "Checking backend health..."
+          curl -f http://${{ secrets.EC2_HOST }}:5000/health || exit 1
+
+          echo "Checking frontend..."
+          curl -f http://${{ secrets.EC2_HOST }} || exit 1
+
+          echo "✅ Deployment successful!"
+
+  # Job 4: Notify on completion
+  notify:
+    name: Notify Deployment Status
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Deployment Success
+        if: needs.deploy.result == 'success'
+        run: echo "✅ Deployment completed successfully!"
+
+      - name: Deployment Failed
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "❌ Deployment failed!"
+          exit 1

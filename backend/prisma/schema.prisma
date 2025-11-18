@@ -1,0 +1,374 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Profile information
+  profile   UserProfile?
+  
+  // Chat history
+  chatSessions ChatSession[]
+  
+  // Recommendations and roadmaps
+  roadmaps  CareerRoadmap[]
+  
+  // Mental wellness tracking
+  wellnessCheckins WellnessCheckin[]
+  wellnessGoals    WellnessGoal[]
+  wellnessInsights WellnessInsight[]
+  
+  // Assessments
+  assessments Assessment[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id       String @id @default(cuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Basic info
+  age      Int?
+  location String?
+  
+  // Career info
+  currentEducation String?
+  careerGoals      String[]
+  skills           String[]
+  interests        String[]
+  
+  // Preferences
+  preferredLanguage String @default("en")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_profiles")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title     String?
+  type      ChatType @default(GENERAL)
+  
+  messages  ChatMessage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id            String      @id @default(cuid())
+  sessionId     String
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  role          MessageRole
+  content       String
+  metadata      Json?
+  
+  createdAt     DateTime    @default(now())
+
+  @@map("chat_messages")
+}
+
+model CareerRoadmap {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  targetRole  String
+  
+  milestones  RoadmapMilestone[]
+  
+  isActive    Boolean  @default(true)
+  progress    Float    @default(0.0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("career_roadmaps")
+}
+
+model RoadmapMilestone {
+  id          String        @id @default(cuid())
+  roadmapId   String
+  roadmap     CareerRoadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  type        MilestoneType
+  
+  // Resources (courses, articles, etc.)
+  resources   Json?
+  
+  isCompleted Boolean       @default(false)
+  order       Int
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("roadmap_milestones")
+}
+
+model WellnessCheckin {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Core wellness metrics (1-10 scale)
+  moodScore       Int
+  stressLevel     Int
+  energyLevel     Int
+  sleepQuality    Int
+  focusLevel      Int
+  
+  // Lifestyle factors
+  hoursSlept      Float?
+  exerciseMinutes Int?
+  screenTime      Int?    // minutes
+  socialTime      Int?    // minutes
+  
+  // Academic/Career wellness
+  studyHours      Float?
+  productivityScore Int?  // 1-10 scale
+  motivationLevel Int?    // 1-10 scale
+  
+  // Emotional wellness
+  anxietyLevel    Int?    // 1-10 scale
+  confidenceLevel Int?    // 1-10 scale
+  
+  // Activities and habits
+  activities      String[] // Array of activities done today
+  gratitude       String[] // Things grateful for
+  challenges      String[] // Challenges faced
+  
+  // Notes and reflection
+  notes           String?
+  goals           String[] // Goals for tomorrow
+  
+  // Calculated wellness score
+  overallScore    Float?
+  
+  createdAt       DateTime @default(now())
+
+  @@map("wellness_checkins")
+}
+
+model WellnessGoal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  category    WellnessCategory
+  targetValue Float?   // Target value (e.g., 8 hours sleep, 30 min exercise)
+  unit        String?  // Unit of measurement (hours, minutes, score)
+  
+  // Progress tracking
+  currentStreak Int     @default(0)
+  bestStreak    Int     @default(0)
+  isActive      Boolean @default(true)
+  
+  // Reminders
+  reminderTime  String? // Time for daily reminder (HH:MM format)
+  reminderDays  Int[]   // Days of week (0=Sunday, 1=Monday, etc.)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("wellness_goals")
+}
+
+model WellnessInsight {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        InsightType
+  title       String
+  description String
+  category    WellnessCategory
+  
+  // Data that triggered this insight
+  triggerData Json?
+  
+  // Recommendations
+  recommendations String[]
+  
+  // Priority and status
+  priority    InsightPriority @default(MEDIUM)
+  isRead      Boolean         @default(false)
+  isActioned  Boolean         @default(false)
+  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("wellness_insights")
+}
+
+model Assessment {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        AssessmentType
+  title       String
+  description String?
+  
+  questions   AssessmentQuestion[]
+  responses   AssessmentResponse[]
+  results     AssessmentResult?
+  
+  isCompleted Boolean          @default(false)
+  timeLimit   Int?             // in minutes
+  
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("assessments")
+}
+
+model AssessmentQuestion {
+  id           String              @id @default(cuid())
+  assessmentId String
+  assessment   Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  question     String
+  type         QuestionType        @default(MULTIPLE_CHOICE)
+  options      String[]            // JSON array of options
+  category     String?             // For grouping questions
+  weight       Float               @default(1.0)
+  order        Int
+  
+  responses    AssessmentResponse[]
+  
+  createdAt    DateTime            @default(now())
+
+  @@map("assessment_questions")
+}
+
+model AssessmentResponse {
+  id           String             @id @default(cuid())
+  assessmentId String
+  assessment   Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  answer       String
+  score        Float?             // Calculated score for this response
+  
+  createdAt    DateTime           @default(now())
+
+  @@map("assessment_responses")
+}
+
+model AssessmentResult {
+  id           String     @id @default(cuid())
+  assessmentId String     @unique
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  overallScore Float
+  percentage   Float
+  
+  // Category-wise scores (JSON object)
+  categoryScores Json?
+  
+  // AI-generated insights and recommendations
+  insights       String?
+  recommendations String[]
+  
+  // Personality traits or aptitude areas
+  traits         Json?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("assessment_results")
+}
+
+enum ChatType {
+  GENERAL
+  CAREER
+  MENTAL_WELLNESS
+  ACADEMIC
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MilestoneType {
+  COURSE
+  PROJECT
+  SKILL
+  CERTIFICATION
+  EXPERIENCE
+}
+
+enum AssessmentType {
+  APTITUDE
+  PERSONALITY
+  INTEREST
+  SKILL
+  CAREER_VALUES
+  LEARNING_STYLE
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  SINGLE_CHOICE
+  RATING_SCALE
+  TEXT_INPUT
+  TRUE_FALSE
+}
+
+enum WellnessCategory {
+  PHYSICAL
+  MENTAL
+  EMOTIONAL
+  SOCIAL
+  ACADEMIC
+  SLEEP
+  NUTRITION
+  EXERCISE
+  MINDFULNESS
+  PRODUCTIVITY
+}
+
+enum InsightType {
+  TREND
+  ACHIEVEMENT
+  WARNING
+  RECOMMENDATION
+  MILESTONE
+}
+
+enum InsightPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}

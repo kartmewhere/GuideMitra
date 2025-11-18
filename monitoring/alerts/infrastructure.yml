@@ -1,0 +1,138 @@
+# Infrastructure Alert Rules for GuideMitra
+
+groups:
+  - name: infrastructure_alerts
+    interval: 30s
+    rules:
+      # Instance down
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Instance is down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 2 minutes"
+
+      # High disk usage
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage on {{ $labels.mountpoint }} is {{ $value | humanize }}%"
+
+      # Disk will be full soon
+      - alert: DiskWillFillIn24Hours
+        expr: predict_linear(node_filesystem_free_bytes{mountpoint="/"}[1h], 24*3600) < 0
+        for: 1h
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Disk will be full in 24 hours"
+          description: "Disk on {{ $labels.instance }} is predicted to fill in 24 hours"
+
+      # High inode usage
+      - alert: HighInodeUsage
+        expr: (node_filesystem_files - node_filesystem_files_free) / node_filesystem_files * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High inode usage"
+          description: "Inode usage on {{ $labels.mountpoint }} is {{ $value | humanize }}%"
+
+      # Network interface down
+      - alert: NetworkInterfaceDown
+        expr: node_network_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Network interface is down"
+          description: "Network interface {{ $labels.device }} on {{ $labels.instance }} is down"
+
+      # High network traffic
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_receive_bytes_total[5m]) > 100 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High network receive traffic"
+          description: "Network traffic is {{ $value | humanize }}B/s"
+
+      # System load high
+      - alert: HighSystemLoad
+        expr: node_load1 / count(node_cpu_seconds_total{mode="idle"}) without(cpu, mode) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High system load"
+          description: "System load is {{ $value | humanize }} (normalized by CPU count)"
+
+      # OOM kills detected
+      - alert: OOMKills
+        expr: increase(node_vmstat_oom_kill[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "OOM kills detected"
+          description: "{{ $value }} OOM kills in the last 5 minutes"
+
+      # Service not responding
+      - alert: ServiceNotResponding
+        expr: probe_http_status_code != 200
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Service is not responding with 200 OK"
+          description: "{{ $labels.instance }} returned status {{ $value }}"
+
+      # PostgreSQL down
+      - alert: PostgreSQLDown
+        expr: up{job="postgresql"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is not responding"
+
+      # Nginx down
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Nginx is down"
+          description: "Nginx web server is not responding"
+
+      # Too many open files
+      - alert: TooManyOpenFiles
+        expr: node_filefd_allocated / node_filefd_maximum * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Too many open file descriptors"
+          description: "{{ $value | humanize }}% of file descriptors are in use"
+

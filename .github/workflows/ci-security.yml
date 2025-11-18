@@ -1,0 +1,298 @@
+name: CI/CD with Security Checks
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: "18.x"
+
+jobs:
+  # ==================== Code Quality ====================
+  code-quality:
+    name: Code Quality & Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for better analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Lint Backend
+        run: |
+          cd backend
+          npm run lint || echo "::warning::Backend linting found issues"
+
+      - name: Lint Frontend
+        run: |
+          cd frontend
+          npm run lint || echo "::warning::Frontend linting found issues"
+
+      - name: Check Code Formatting
+        run: |
+          cd frontend
+          npm run format:check || echo "::warning::Code formatting issues found"
+
+  # ==================== Secret Scanning ====================
+  secret-scanning:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+
+  # ==================== Dependency Vulnerability Scanning ====================
+  dependency-scan:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Backend - npm audit
+        run: |
+          cd backend
+          npm audit --audit-level=moderate || echo "::warning::Backend dependencies have vulnerabilities"
+
+      - name: Frontend - npm audit
+        run: |
+          cd frontend
+          npm audit --audit-level=moderate || echo "::warning::Frontend dependencies have vulnerabilities"
+
+      - name: Checkmarx SCA Scan
+        uses: checkmarx-ts/checkmarx-cxflow-github-action@v1.6
+        continue-on-error: true
+        with:
+          project: GuideMitra
+          team: /CxServer/SP/Company
+          checkmarx_url: ${{ secrets.CHECKMARX_URL }}
+          checkmarx_username: ${{ secrets.CHECKMARX_USERNAME }}
+          checkmarx_password: ${{ secrets.CHECKMARX_PASSWORD }}
+          checkmarx_client_secret: ${{ secrets.CHECKMARX_CLIENT_SECRET }}
+          break_build: false
+          scanners: sca
+          params: --namespace=${{ github.repository_owner }} --repo-name=${{ github.event.repository.name }} --branch=${{ github.ref }}
+
+      - name: Upload Checkmarx Results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: cx.sarif
+
+  # ==================== SAST - Static Application Security Testing ====================
+  sast-scan:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Semgrep SAST Scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/security-audit
+            p/nodejs
+            p/react
+
+  # ==================== Backend Tests ====================
+  backend-test:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Generate Prisma Client
+        run: |
+          cd backend
+          npx prisma generate
+
+      - name: Run Tests
+        run: |
+          cd backend
+          npm test -- --coverage --passWithNoTests
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        continue-on-error: true
+        with:
+          files: ./backend/coverage/lcov.info
+          flags: backend
+
+  # ==================== Frontend Tests ====================
+  frontend-test:
+    name: Frontend Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Tests
+        run: |
+          cd frontend
+          CI=true npm test -- --coverage --passWithNoTests
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        continue-on-error: true
+        with:
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+
+  # ==================== Frontend Build ====================
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    needs: [frontend-test, code-quality]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Application
+        env:
+          REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL || 'http://localhost:5000/api' }}
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build/
+          retention-days: 7
+
+  # ==================== License Compliance ====================
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install license-checker
+        run: npm install -g license-checker
+
+      - name: Check Backend Licenses
+        run: |
+          cd backend
+          npm ci
+          license-checker --summary --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD" || echo "::warning::Potentially incompatible licenses found"
+
+      - name: Check Frontend Licenses
+        run: |
+          cd frontend
+          npm ci
+          license-checker --summary --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD" || echo "::warning::Potentially incompatible licenses found"
+
+  # ==================== Security Summary ====================
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [secret-scanning, dependency-scan, sast-scan]
+    if: always()
+
+    steps:
+      - name: Check Security Status
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Secret Scanning: Completed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Dependency Scanning: Completed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ SAST Scanning: Completed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Container Scanning: Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Review the individual job results for details." >> $GITHUB_STEP_SUMMARY

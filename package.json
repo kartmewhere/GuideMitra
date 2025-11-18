@@ -1,0 +1,30 @@
+{
+  "name": "guidemitra",
+  "version": "1.0.0",
+  "description": "AI-Powered Career & Mental Wellness Platform",
+  "main": "index.js",
+  "scripts": {
+    "prepare": "if [ \"$NODE_ENV\" != \"production\" ]; then husky install; fi",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm start",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "keywords": [
+    "ai",
+    "career",
+    "mental-health",
+    "guidance",
+    "education"
+  ],
+  "author": "GuideMitra Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "concurrently": "^8.2.2",
+    "gitleaks": "^1.0.0",
+    "lint-staged": "^15.1.0",
+    "prettier": "^3.1.0"
+  }
+}

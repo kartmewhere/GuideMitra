@@ -1,0 +1,16 @@
+node_modules
+build
+dist
+.next
+.turbo
+
+# Lockfiles
+**/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock
+
+# Logs and coverage
+coverage
+*.log
+
+

@@ -1,0 +1,152 @@
+# Semgrep Configuration for GuideMitra
+# Custom security rules for Node.js and React
+
+rules:
+  # SQL Injection Prevention
+  - id: sql-injection-risk
+    patterns:
+      - pattern: |
+          db.raw($SQL)
+      - pattern-not: |
+          db.raw("...")
+    message: "Potential SQL injection vulnerability. Use parameterized queries."
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89"
+      owasp: "A03:2021 - Injection"
+
+  # XSS Prevention
+  - id: dangerously-set-inner-html
+    pattern: "dangerouslySetInnerHTML={{__html: $HTML}}"
+    message: "Using dangerouslySetInnerHTML can lead to XSS vulnerabilities. Sanitize input first."
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-79"
+      owasp: "A03:2021 - Injection"
+
+  # Hardcoded Secrets
+  - id: hardcoded-jwt-secret
+    patterns:
+      - pattern-either:
+          - pattern: jwt.sign(..., "...", ...)
+          - pattern: jwt.verify(..., "...", ...)
+      - pattern-not: jwt.sign(..., process.env.$SECRET, ...)
+      - pattern-not: jwt.verify(..., process.env.$SECRET, ...)
+    message: "Hardcoded JWT secret detected. Use environment variables."
+    languages: [javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798"
+
+  # Insecure Random
+  - id: insecure-random
+    pattern: Math.random()
+    message: "Math.random() is not cryptographically secure. Use crypto.randomBytes() instead."
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-338"
+
+  # Command Injection
+  - id: command-injection
+    patterns:
+      - pattern-either:
+          - pattern: exec($CMD)
+          - pattern: execSync($CMD)
+      - pattern-not: exec("...")
+      - pattern-not: execSync("...")
+    message: "Potential command injection vulnerability. Sanitize input."
+    languages: [javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78"
+
+  # Weak Crypto
+  - id: weak-crypto-algorithm
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createCipher("md5", ...)
+          - pattern: crypto.createCipher("sha1", ...)
+          - pattern: crypto.createHash("md5")
+          - pattern: crypto.createHash("sha1")
+    message: "Weak cryptographic algorithm detected. Use SHA-256 or stronger."
+    languages: [javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-327"
+
+  # Prototype Pollution
+  - id: prototype-pollution
+    patterns:
+      - pattern: |
+          $OBJ["__proto__"] = ...
+      - pattern: |
+          $OBJ["constructor"] = ...
+      - pattern: |
+          $OBJ["prototype"] = ...
+    message: "Potential prototype pollution vulnerability."
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-1321"
+
+  # Open Redirect
+  - id: open-redirect
+    patterns:
+      - pattern: res.redirect($URL)
+      - pattern-not: res.redirect("/...")
+    message: "Potential open redirect vulnerability. Validate redirect URLs."
+    languages: [javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-601"
+
+  # Missing Input Validation
+  - id: missing-input-validation
+    pattern: |
+      app.$METHOD($PATH, async (req, res) => {
+        ...
+        $DB.$QUERY(req.$PARAM)
+        ...
+      })
+    message: "Direct use of request parameters without validation. Use Joi or similar."
+    languages: [javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      best-practice: true
+
+  # Insecure Cookie Settings
+  - id: insecure-cookie
+    patterns:
+      - pattern: res.cookie($NAME, $VALUE, {...})
+      - pattern-not: |
+          res.cookie($NAME, $VALUE, {httpOnly: true, secure: true, ...})
+    message: "Cookie should have httpOnly and secure flags set."
+    languages: [javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-614"
+
+  # CORS Misconfiguration
+  - id: cors-misconfiguration
+    pattern: |
+      cors({origin: "*"})
+    message: "CORS is configured to allow all origins. Restrict to specific domains."
+    languages: [javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+

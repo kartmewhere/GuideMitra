@@ -131,15 +131,29 @@ jobs:
             sudo systemctl restart nginx
           '
 
-      - name: Verify deployment
+      - name: Verify deployment with retries
         run: |
-          echo "Checking backend health..."
-          curl -f http://${{ secrets.EC2_HOST }}/health || exit 1
+          echo "⏳ Checking backend health (with retries)..."
+          for i in {1..10}; do
+            if curl -fs "http://${{ secrets.EC2_HOST }}/health" > /dev/null; then
+              echo "✅ Backend is healthy!"
+              break
+            fi
+            
+            echo "❌ Attempt $i failed – waiting 3 seconds..."
+            sleep 3
+            
+            if [ $i -eq 10 ]; then
+              echo "🚨 Backend health check failed after 10 attempts!"
+              exit 1
+            fi
+          done
 
-          echo "Checking frontend..."
+          echo "🌍 Checking frontend availability..."
           curl -f http://${{ secrets.EC2_HOST }} || exit 1
 
-          echo "✅ Deployment successful!"
+          echo "🎉 Deployment successful!"
+ 
 
   # Job 4: Notify on completion
   notify:

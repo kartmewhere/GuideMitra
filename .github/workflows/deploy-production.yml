@@ -11,10 +11,12 @@ on:
 
 env:
   NODE_VERSION: "18.x"
-  HUSKY: 0 
+  HUSKY: 0
 
 jobs:
-  # Job 1: Test and Build Frontend
+  # ============================================================
+  # Job 1: Build Frontend
+  # ============================================================
   frontend-build:
     name: Build Frontend
     runs-on: ubuntu-latest
@@ -50,7 +52,9 @@ jobs:
           path: frontend/build/
           retention-days: 1
 
+  # ============================================================
   # Job 2: Test Backend
+  # ============================================================
   backend-test:
     name: Test Backend
     runs-on: ubuntu-latest
@@ -74,7 +78,9 @@ jobs:
         working-directory: ./backend
         run: node -c src/server.js
 
+  # ============================================================
   # Job 3: Deploy to EC2
+  # ============================================================
   deploy:
     name: Deploy to EC2
     needs: [frontend-build, backend-test]
@@ -85,7 +91,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Download frontend build artifact
+      - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend-build
@@ -96,53 +102,63 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -T 5 -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy to EC2
         run: |
-          # Create deployment directory on EC2
+          echo "🚀 Creating directories on server..."
           ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} '
             mkdir -p ~/guidemitra/frontend
             mkdir -p ~/guidemitra/backend
           '
 
-          # Copy frontend build to EC2
-          scp -i ~/.ssh/deploy_key -r frontend/build/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/guidemitra/frontend/
+          echo "📦 Uploading frontend..."
+          scp -i ~/.ssh/deploy_key -r frontend/build/* \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/guidemitra/frontend/
 
-          # Copy backend files to EC2
-          scp -i ~/.ssh/deploy_key -r backend/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/guidemitra/backend/
+          echo "📦 Uploading backend (excluding .env)..."
+          rsync -avz \
+            --exclude=".env" \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            backend/ \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/guidemitra/backend/
 
-          # Execute deployment script on EC2
-          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} '
+          echo "⚙️ Running deployment script on EC2..."
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
             cd ~/guidemitra/backend
-            
-            # Install dependencies
-            npm ci --production
-            
-            # Generate Prisma client
+
+            echo "Installing backend dependencies..."
+            npm ci --omit=dev
+
+            echo "Generating Prisma client..."
             npx prisma generate
-            
-            # Run database migrations
+
+            echo "Applying database migrations..."
             npx prisma migrate deploy
-            
-            # Restart backend service
+
+            echo "Restarting PM2 backend..."
             pm2 restart guidemitra-backend || pm2 start src/server.js --name guidemitra-backend
-            
-            # Restart frontend service (nginx)
-            sudo systemctl restart nginx
-          '
+
+            echo "Restarting Nginx..."
+            sudo systemctl restart nginx || echo "Nginx restart skipped"
+
+            echo "🎉 Deployment completed successfully!"
+          EOF
 
       - name: Verify deployment
         run: |
-          echo "Checking backend health..."
+          echo "⏳ Checking backend health..."
           curl -f http://${{ secrets.EC2_HOST }}:5000/health || exit 1
 
-          echo "Checking frontend..."
+          echo "🌍 Checking frontend..."
           curl -f http://${{ secrets.EC2_HOST }} || exit 1
 
           echo "✅ Deployment successful!"
 
-  # Job 4: Notify on completion
+  # ============================================================
+  # Job 4: Notify
+  # ============================================================
   notify:
     name: Notify Deployment Status
     needs: [deploy]
@@ -152,10 +168,10 @@ jobs:
     steps:
       - name: Deployment Success
         if: needs.deploy.result == 'success'
-        run: echo " Deployment completed successfully!"
+        run: echo "🎉 Deployment completed successfully!"
 
       - name: Deployment Failed
         if: needs.deploy.result == 'failure'
         run: |
-          echo " Deployment failed!"
+          echo "❌ Deployment failed!"
           exit 1

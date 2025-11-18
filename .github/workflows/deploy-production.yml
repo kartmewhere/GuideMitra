@@ -11,6 +11,7 @@ on:
 
 env:
   NODE_VERSION: "18.x"
+  HUSKY: 0 
 
 jobs:
   # Job 1: Test and Build Frontend
@@ -151,10 +152,10 @@ jobs:
     steps:
       - name: Deployment Success
         if: needs.deploy.result == 'success'
-        run: echo "✅ Deployment completed successfully!"
+        run: echo " Deployment completed successfully!"
 
       - name: Deployment Failed
         if: needs.deploy.result == 'failure'
         run: |
-          echo "❌ Deployment failed!"
+          echo " Deployment failed!"
           exit 1

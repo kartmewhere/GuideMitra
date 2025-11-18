@@ -1,13 +1,10 @@
-name: CI/CD Pipeline - Deploy to EC2
+name: CI/CD Pipeline - Deploy to EC2 (Production)
 
 on:
   push:
     branches:
       - main
       - production
-  pull_request:
-    branches:
-      - main
 
 env:
   NODE_VERSION: "18.x"
@@ -128,6 +125,7 @@ jobs:
             set -e
             cd ~/guidemitra/backend
             export HUSKY=0
+
             echo "Installing backend dependencies..."
             npm ci --omit=dev
 
@@ -146,7 +144,7 @@ jobs:
             echo "🎉 Deployment completed successfully!"
           EOF
 
-      - name: Verify deployment 
+      - name: Verify deployment (with retries)
         run: |
           echo "⏳ Checking backend health (with retries)..."
           for i in {1..10}; do
@@ -154,10 +152,8 @@ jobs:
               echo "✅ Backend is healthy!"
               break
             fi
-            
             echo "❌ Attempt $i failed – waiting 3 seconds..."
             sleep 3
-            
             if [ $i -eq 10 ]; then
               echo "🚨 Backend health check failed after 10 attempts!"
               exit 1
@@ -168,7 +164,6 @@ jobs:
           curl -f http://${{ secrets.EC2_HOST }} || exit 1
 
           echo "🎉 Deployment successful!"
-
 
   # ============================================================
   # Job 4: Notify

@@ -15,22 +15,28 @@ jobs:
     name: OWASP ZAP Full Scan
     runs-on: ubuntu-latest
     
+    permissions:
+     security-events: write
+     actions: read
+     contents: read
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+     - name: Checkout code
+       uses: actions/checkout@v4
 
-      - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.10.0
-        with:
-          target: ${{ env.TARGET_URL }}
-          rules_file_name: '.zap/rules.tsv'
-          cmd_options: '-a'
+     - name: ZAP Baseline Scan
+       uses: zaproxy/action-baseline@v0.10.0
+       with:
+        target: ${{ env.TARGET_URL }}
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
 
-      - name: Upload ZAP Results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: results.sarif
+     - name: Upload ZAP Results (SARIF)
+       uses: github/codeql-action/upload-sarif@v4
+       if: always()
+       with:
+        sarif_file: zap-results.sarif
+
 
   # ==================== API Security Testing ====================
   api-security-test:
